@@ -25,7 +25,7 @@ docker run -d --name=webdav-aliyundriver --restart=always -p 8080:8080  -v /etc/
 # 参数说明
 ```bash
 --aliyundrive.refresh-token
-    阿里云盘的refreshToken，获取方式见下文
+    阿里云盘的refreshToken，多个refreshToken以“,”隔开，获取方式见下文
 --server.port
     非必填，服务器端口号，默认为8080
 --aliyundrive.auth.enable=true
