@@ -1,13 +1,14 @@
 package com.github.zxbu.webdavteambition.client;
 
 import com.github.zxbu.webdavteambition.config.AliYunDriveProperties;
+import com.github.zxbu.webdavteambition.config.AliYunDriverAutoConfig;
 import com.github.zxbu.webdavteambition.util.JsonUtil;
 import net.sf.webdav.exceptions.WebdavException;
 import okhttp3.*;
+import org.apache.tomcat.util.buf.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -17,14 +18,17 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class AliYunDriverClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(AliYunDriverClient.class);
     private OkHttpClient okHttpClient;
     private AliYunDriveProperties aliYunDriveProperties;
+    private boolean initFlag = false;
 
     public AliYunDriverClient(AliYunDriveProperties aliYunDriveProperties) {
 
@@ -43,17 +47,27 @@ public class AliYunDriverClient {
         }).authenticator(new Authenticator() {
             @Override
             public Request authenticate(Route route, Response response) throws IOException {
-                if (response.code() == 401 && response.body() != null  && response.body().string().contains("AccessToken")) {
+                if (!initFlag || (response.code() == 401 && response.body() != null  && response.body().string().contains("AccessToken"))) {
+                    initFlag = true;
                     String refreshTokenResult;
                     try {
                         refreshTokenResult = post("https://websv.aliyundrive.com/token/refresh", Collections.singletonMap("refresh_token", readRefreshToken()));
                     } catch (Exception e) {
+                        e.printStackTrace();
                         // 如果置换token失败，先清空原token文件，再尝试一次
                         deleteRefreshTokenFile();
                         refreshTokenResult = post("https://websv.aliyundrive.com/token/refresh", Collections.singletonMap("refresh_token", readRefreshToken()));
                     }
                     String accessToken = (String) JsonUtil.getJsonNodeValue(refreshTokenResult, "access_token");
                     String refreshToken = (String) JsonUtil.getJsonNodeValue(refreshTokenResult, "refresh_token");
+                    String nikeName = (String) JsonUtil.getJsonNodeValue(refreshTokenResult, "nick_name");
+                    String userName = (String) JsonUtil.getJsonNodeValue(refreshTokenResult, "user_name");
+                    if (Objects.isNull(aliYunDriveProperties.getNickName())) {
+                        aliYunDriveProperties.setNickName(nikeName);
+                    }
+                    if (Objects.isNull(aliYunDriveProperties.getUserName())) {
+                        aliYunDriveProperties.setUserName(userName);
+                    }
                     Assert.hasLength(accessToken, "获取accessToken失败");
                     Assert.hasLength(refreshToken, "获取refreshToken失败");
                     aliYunDriveProperties.setAuthorization(accessToken);
@@ -208,7 +222,7 @@ public class AliYunDriverClient {
     }
 
     private void deleteRefreshTokenFile() {
-        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + "refresh-token";
+        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + Base64.getEncoder().encodeToString(AliYunDriverAutoConfig.getClientName(aliYunDriveProperties.getNickName(),aliYunDriveProperties.getUserName()).getBytes()) + "_refresh-token";
         Path path = Paths.get(refreshTokenPath);
         try {
             Files.delete(path);
@@ -218,31 +232,35 @@ public class AliYunDriverClient {
     }
 
     private String readRefreshToken() {
-        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + "refresh-token";
+        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + Base64.getEncoder().encodeToString(AliYunDriverAutoConfig.getClientName(aliYunDriveProperties.getNickName(),aliYunDriveProperties.getUserName()).getBytes()) + "_refresh-token";
         Path path = Paths.get(refreshTokenPath);
 
         if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             try {
                 Files.createDirectories(path.getParent());
-                Files.createFile(path);
+                if (Objects.nonNull(aliYunDriveProperties.getUserName())) {
+                    Files.createFile(path);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        try {
-            byte[] bytes = Files.readAllBytes(path);
-            if (bytes.length != 0) {
-                return new String(bytes, StandardCharsets.UTF_8);
+        if (Objects.nonNull(aliYunDriveProperties.getUserName())) {
+            try {
+                byte[] bytes = Files.readAllBytes(path);
+                if (bytes.length != 0) {
+                    return new String(bytes, StandardCharsets.UTF_8);
+                }
+            } catch (IOException e) {
+                LOGGER.warn("读取refreshToken文件 {} 失败: ", refreshTokenPath, e);
             }
-        } catch (IOException e) {
-            LOGGER.warn("读取refreshToken文件 {} 失败: ", refreshTokenPath, e);
+            writeRefreshToken(aliYunDriveProperties.getRefreshToken());
         }
-        writeRefreshToken(aliYunDriveProperties.getRefreshToken());
         return aliYunDriveProperties.getRefreshToken();
     }
 
     private void writeRefreshToken(String newRefreshToken) {
-        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + "refresh-token";
+        String refreshTokenPath = aliYunDriveProperties.getWorkDir() + Base64.getEncoder().encodeToString(AliYunDriverAutoConfig.getClientName(aliYunDriveProperties.getNickName(),aliYunDriveProperties.getUserName()).getBytes()) + "_refresh-token";
         try {
             Files.write(Paths.get(refreshTokenPath), newRefreshToken.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {

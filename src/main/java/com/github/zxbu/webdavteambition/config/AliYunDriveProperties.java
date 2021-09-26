@@ -11,6 +11,8 @@ public class AliYunDriveProperties {
     private String agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36";
     private String driveId;
     private Auth auth;
+    private String userName;
+    private String nickName;
 
     public String getUrl() {
         return url;
@@ -66,6 +68,22 @@ public class AliYunDriveProperties {
 
     public void setAuth(Auth auth) {
         this.auth = auth;
+    }
+
+    public String getNickName() {
+        return nickName;
+    }
+
+    public void setNickName(String nickName) {
+        this.nickName = nickName;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
     }
 
     public static class Auth {

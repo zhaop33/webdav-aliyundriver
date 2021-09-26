@@ -3,10 +3,8 @@ package com.github.zxbu.webdavteambition.store;
 import com.github.zxbu.webdavteambition.model.FileType;
 import com.github.zxbu.webdavteambition.model.PathInfo;
 import com.github.zxbu.webdavteambition.model.result.TFile;
-import net.sf.webdav.ITransaction;
-import net.sf.webdav.IWebdavStore;
-import net.sf.webdav.StoredObject;
-import net.sf.webdav.Transaction;
+import com.github.zxbu.webdavteambition.util.RequestUtil;
+import net.sf.webdav.*;
 import net.sf.webdav.exceptions.WebdavException;
 import okhttp3.Response;
 import org.slf4j.Logger;
@@ -18,20 +16,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.Principal;
-import java.util.Enumeration;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class AliYunDriverFileSystemStore implements IWebdavStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(AliYunDriverFileSystemStore.class);
 
-    private static AliYunDriverClientService aliYunDriverClientService;
+    private static Map<String,AliYunDriverClientService> aliYunDriverClientServiceMap = new HashMap<>();
 
     public AliYunDriverFileSystemStore(File file) {
     }
 
-    public static void setBean(AliYunDriverClientService aliYunDriverClientService) {
-        AliYunDriverFileSystemStore.aliYunDriverClientService = aliYunDriverClientService;
+    public static void setBean(String key, AliYunDriverClientService aliYunDriverClientService) {
+        AliYunDriverFileSystemStore.aliYunDriverClientServiceMap.put(key,aliYunDriverClientService);
     }
 
 
@@ -68,7 +64,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
     @Override
     public void createFolder(ITransaction transaction, String folderUri) {
         LOGGER.info("createFolder {}", folderUri);
-
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         aliYunDriverClientService.createFolder(folderUri);
     }
 
@@ -80,6 +76,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
 
     @Override
     public InputStream getResourceContent(ITransaction transaction, String resourceUri) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("getResourceContent: {}", resourceUri);
         Enumeration<String> headerNames = transaction.getRequest().getHeaderNames();
         while (headerNames.hasMoreElements()) {
@@ -102,6 +99,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
 
     @Override
     public long setResourceContent(ITransaction transaction, String resourceUri, InputStream content, String contentType, String characterEncoding) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("setResourceContent {}", resourceUri);
         HttpServletRequest request = transaction.getRequest();
         HttpServletResponse response = transaction.getResponse();
@@ -131,6 +129,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
 
     @Override
     public String[] getChildrenNames(ITransaction transaction, String folderUri) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("getChildrenNames: {}", folderUri);
         TFile tFile = aliYunDriverClientService.getTFileByPath(folderUri);
         if (tFile.getType().equals(FileType.file.name())) {
@@ -148,6 +147,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
     }
 
     public long getResourceLength2(ITransaction transaction, String path) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("getResourceLength: {}", path);
         TFile tFile = aliYunDriverClientService.getTFileByPath(path);
         if (tFile == null || tFile.getSize() == null) {
@@ -159,12 +159,14 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
 
     @Override
     public void removeObject(ITransaction transaction, String uri) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("removeObject: {}", uri);
         aliYunDriverClientService.remove(uri);
     }
 
     @Override
     public boolean moveObject(ITransaction transaction, String destinationPath, String sourcePath) {
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("moveObject, destinationPath={}, sourcePath={}", destinationPath, sourcePath);
 
         PathInfo destinationPathInfo = aliYunDriverClientService.getPathInfo(destinationPath);
@@ -184,8 +186,7 @@ public class AliYunDriverFileSystemStore implements IWebdavStore {
 
     @Override
     public StoredObject getStoredObject(ITransaction transaction, String uri) {
-
-
+        AliYunDriverClientService aliYunDriverClientService = RequestUtil.getClientService(transaction,aliYunDriverClientServiceMap);
         LOGGER.info("getStoredObject: {}", uri);
         TFile tFile = aliYunDriverClientService.getTFileByPath(uri);
         if (tFile != null) {

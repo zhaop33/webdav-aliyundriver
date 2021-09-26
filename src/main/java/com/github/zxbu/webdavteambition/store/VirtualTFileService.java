@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 虚拟文件（用于上传时，列表展示）
  */
-@Service
 public class VirtualTFileService {
     private final Map<String, Map<String, TFile>> virtualTFileMap = new ConcurrentHashMap<>();
 

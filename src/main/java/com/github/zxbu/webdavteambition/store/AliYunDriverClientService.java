@@ -27,7 +27,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-@Service
 public class AliYunDriverClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AliYunDriverClientService.class);
     private static ObjectMapper objectMapper = new ObjectMapper();
@@ -35,7 +34,7 @@ public class AliYunDriverClientService {
     private static int chunkSize = 10485760; // 10MB
     private TFile rootTFile = null;
 
-    private static Cache<String, Set<TFile>> tFilesCache = Caffeine.newBuilder()
+    private Cache<String, Set<TFile>> tFilesCache = Caffeine.newBuilder()
             .initialCapacity(128)
             .maximumSize(1024)
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -43,12 +42,12 @@ public class AliYunDriverClientService {
 
     private final AliYunDriverClient client;
 
-    @Autowired
     private VirtualTFileService virtualTFileService;
 
-    public AliYunDriverClientService(AliYunDriverClient aliYunDriverClient) {
+    public AliYunDriverClientService(String key, AliYunDriverClient aliYunDriverClient, VirtualTFileService virtualTFileService) {
         this.client = aliYunDriverClient;
-        AliYunDriverFileSystemStore.setBean(this);
+        this.virtualTFileService = virtualTFileService;
+        AliYunDriverFileSystemStore.setBean(key,this);
     }
 
     public Set<TFile> getTFiles(String nodeId) {
